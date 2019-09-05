@@ -1,5 +1,6 @@
 .App {
   text-align: left;
+  transition: all .5s;
 }
 
 .App-logo {
@@ -10,17 +11,22 @@
 
 .App-header {
   background-color: #282c34;
-  min-height: 100vh;
   display: flex;
   flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  font-size: calc(10px + 2vmin);
+  align-items: left;
+  justify-content: top;
+  font-size: calc(1px + 2vmin);
   color: white;
 }
 
 .App-link {
   color: #61dafb;
+  font-size: calc(10px + 2vmin);
+}
+
+.App-content {
+  padding: 30px;
+  flex: 1
 }
 
 @keyframes App-logo-spin {
@@ -30,4 +36,23 @@
   to {
     transform: rotate(360deg);
   }
+}
+
+.container{
+  display: flex;
+  padding: 5px;
+  justify-content: space-between;
+}
+
+.item {
+  flex-grow: 1;
+  height: 100px;
+}
+
+.item + .item {
+  margin-left: 2%;
+}
+
+.item:nth-child(1) {
+  flex: 0 20%
 }

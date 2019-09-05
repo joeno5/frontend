@@ -3,6 +3,10 @@
   "version": "0.1.0",
   "private": true,
   "dependencies": {
+    "antd": "^3.23.0",
+    "autoprefixer": "^9.6.1",
+    "node-sass": "^4.12.0",
+    "postcss-cli": "^6.1.3",
     "react": "^16.9.0",
     "react-dom": "^16.9.0",
     "react-router": "^5.0.1",
@@ -20,7 +24,7 @@
   },
   "browserslist": {
     "production": [
-      ">0.2%",
+      ">0.1%",
       "not dead",
       "not op_mini all"
     ],
@@ -30,5 +34,8 @@
       "last 1 safari version"
     ]
   },
-  "homepage": "https://localhost:3000/web"
+  "homepage": "https://localhost:3000/web",
+  "devDependencies": {
+    "postcss-normalize": "^8.0.1"
+  }
 }
