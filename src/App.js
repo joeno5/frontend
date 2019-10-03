@@ -1,10 +1,13 @@
-import React, {useState} from 'react'
+import React, {useState, useEffect, useReducer, memo, createRef} from 'react'
 import { BrowserRouter as Router, Route, Link, NavLink, Redirect, Switch } from 'react-router-dom'
 import { withRouter } from 'react-router'
 import { Form, DatePicker, Button, Input, Icon, Tooltip, TimePicker, Select, Cascader, InputNumber } from 'antd'
+import PropTypes from 'prop-types'
 import { useInput } from './UseInput'
 import './App.scss'
 import 'antd/dist/antd.css'
+import ErrorBoundary from './ErrorBoundary'
+import axios from 'axios'
 
 function App() {
   
@@ -28,7 +31,10 @@ function App() {
             <Link to='/withRouter'>WithRouter</Link>
           </li>
           <li>
-            <Link to='/sayHello'>Say Hello (props)</Link>
+            <Link to='/sayHello'>Say Hello (props, proptypes, state, memo)</Link>
+          </li>
+          <li>
+            <Link to='/fetchData'>Fetch Data (useReducer, useEffect, axios)</Link>
           </li>
           <li>
             <Link to='/form1'>Form 1</Link>
@@ -38,6 +44,9 @@ function App() {
           </li>
           <li>
             <Link to='/form3'>Form 3</Link>
+          </li>
+          <li>
+            <Link to='/errorBoundary'>Error Boundary</Link>
           </li>
         </ul>
       </div>
@@ -49,9 +58,11 @@ function App() {
           <Route path='/redirect' render={() => <Redirect to='/'/>}/>
           <Route path='/withRouter' component={WithRouter1} />
           <Route path='/sayHello' render={() => <SayHello name='Joe'/>} />
+          <Route path='/fetchData' render={() => <API />} />
           <Route path='/form1' component={Form1} />
           <Route path='/form2' component={Form2} />
           <Route path='/form3' component={Form3} />
+          <Route path='/errorBoundary' component={ShowError} />
         </Switch>
       </div> 
     </Router>
@@ -60,7 +71,9 @@ function App() {
 
 // define a JSX element
 function Home() {
+
   const element = <h1>React App</h1>
+
   return (
     <div>
       {element}
@@ -69,10 +82,11 @@ function Home() {
   )
 }
 
+// useState(initialState)
 function About() {
-  // useState(initialState)
-  const [state, setState] = useState({isDisplayList: false}) 
 
+  const [state, setState] = useState({isDisplayList: false}) 
+  
   const handleEvent = (e) => {
     e.preventDefault()
     setState({isDisplayList: true})
@@ -103,10 +117,146 @@ function About() {
 }
 
 // pass property in function component
-function SayHello(props) {
+const SayHello = ({name = 'default'}) => {
+  const [greeting, setGreeting] = useState(`Hello ${name || 'default'}`)
+  const [count, setCount] = useState(0); // initial state 0
+
+  const handleIncrement = () => setCount(currentCount => currentCount + 1)
+  const handleDecrement = () => setCount(currentCount => currentCount - 1)
+  const handleChange = event => setGreeting(event.target.value)
+
   return (
     <div>
-      <h2>Hello {props.name}</h2>
+      <h2>{greeting}</h2>
+      <input type="text" onChange={handleChange} />
+      <Count count={count} />
+      <button type="button" onClick={handleIncrement}>
+        Increment
+      </button>
+      <button type="button" onClick={handleDecrement}>
+        Decrement
+      </button>
+    </div>
+  )
+}
+
+SayHello.prototype = {
+  name: PropTypes.string.isRequired,
+}
+
+// memo: prevent a rerender when the incoming props, i.e. count, of this component haven't changed
+const Count = memo(({ count }) => {
+  console.log('Does it (re)render?');
+  return <h1>{count}</h1>;
+});
+
+// reducer
+const apiReducer = (state, action) => {
+  switch (action.type) {
+    case 'FETCH_INIT':
+        return {
+          ...state,
+          isLoading: true,
+          isError: false
+        }
+    case 'FETCH_SUCCESS':
+        return {
+          ...state,
+          isLoading: false,
+          isError: false,
+          data: action.payload,
+        }
+    case 'FETCH_FAILURE':
+        return {
+          ...state,
+          isLoading: false,
+          isError: true,
+        }
+    default:
+        throw new Error()
+  }
+}
+
+// useEffect invoke API when url state change
+const useData = (initialUrl, initialData) => {
+  const [url, setUrl] = useState(initialUrl);
+  const [state, dispatch] = useReducer(
+      apiReducer  // reducer
+    , {
+        isLoading: false,
+        isError: false,
+        data: initialData,
+      } // init state
+  )
+
+  // execute whenever url state is changed
+  useEffect(() => {
+    // prevent update state on unmounted component
+    let didCancel = false;
+
+    const fetchData = async () => {
+      dispatch({ type: 'FETCH_INIT' });
+      try {
+        const result = await axios(url);
+
+        if (!didCancel) {
+          dispatch({ type: 'FETCH_SUCCESS', payload: result.data });
+        }
+      } catch (error) {
+        if (!didCancel) {
+          dispatch({ type: 'FETCH_FAILURE' });
+        }
+      }
+    };
+
+    fetchData();
+
+    return () => { // invoke when unmount component, clean up function
+      didCancel = true;
+    };
+  }, [url]); // url is variable on which the hook depends 
+
+  return [state, setUrl];
+};
+
+const API = () => {
+  const [query, setQuery] = useState('redux');
+  const [{ data, isLoading, isError }, setUrl] = useData(
+    `http://hn.algolia.com/api/v1/search?query=${query}`,
+    { hits: [] },
+  );
+  
+  return (
+    <div>
+      <h2>API call</h2>
+      <form
+        onSubmit={event => {
+          setUrl(
+            `http://hn.algolia.com/api/v1/search?query=${query}`,
+          );
+          event.preventDefault();
+        }}
+      >
+        <input
+          type="text"
+          value={query}
+          onChange={event => setQuery(event.target.value)}
+        />
+        <button type="submit">Search</button>
+      </form>
+      
+      {isError && <div>Something went wrong ...</div>}
+      {isLoading ? (
+        <div>Loading ...</div>
+      ) : (
+        <ul>
+          {data.hits.map(item => (
+            <li key={item.objectID}>
+              <a href={item.url}>{item.title}</a>
+            </li>
+          ))}
+        </ul>
+      )}
     </div>
   )
 }
@@ -151,7 +301,18 @@ function Topic({match}){
 function Form1() {
   const { value:firstName, bind:bindFirstName, reset:resetFirstName } = useInput('');
   const { value:lastName, bind:bindLastName, reset:resetLastName } = useInput('');
-  
+  const layout = {
+    labelCol: { span: 7 },
+    wrapperCol: { span: 20 },
+  }
+  const buttonLayout = {
+    wrapperCol: { span: 10, offset: 0 },
+  }
+
+  // use REF
+  // const ref = createRef();
+  // useEffect(() => ref.current.focus(), []);
+
   const handleSubmit = (evt) => {
       evt.preventDefault();
       alert(`Submitting Name ${firstName} ${lastName}`);
@@ -161,9 +322,8 @@ function Form1() {
 
   return (
     <div className='container'>
-    <form onSubmit={handleSubmit}>
-      <label>
-        First Name:
+    <Form layout='horizontal' onSubmit={handleSubmit}>
+      <Form.Item label='First Name' {...layout}>
         <Input type="text" {...bindFirstName} 
           placeholder="Enter your first name"
           prefix={<Icon type="user" style={{ color: 'rgba(0,0,0,.25)' }} />}
@@ -173,9 +333,8 @@ function Form1() {
             </Tooltip>
           }
         />
-      </label>
-      <label>
-        Last Name:
+      </Form.Item>
+      <Form.Item label='Last Name' {...layout}>
         <Input type="text" {...bindLastName} 
           placeholder="Enter your last name"
           prefix={<Icon type="user" style={{ color: 'rgba(0,0,0,.25)' }} />}
@@ -185,9 +344,11 @@ function Form1() {
             </Tooltip>
           }
         />
-      </label>
-      <Button type="primary" htmlType="submit">Submit</Button>
-    </form>
+      </Form.Item>
+      <Form.Item {...buttonLayout}>
+        <Button type="primary" htmlType="submit">Submit</Button>
+      </Form.Item>
+    </Form>
     </div>
   );
 }
@@ -321,5 +482,26 @@ const Form3 = Form.create()((props) => {
     </Form>
   )
 })
+
+function Artists({artistName}) {
+  if (artistName === 'joe') {
+    throw new Error ('Error thrown!')
+  }
+  
+  return (
+    <div>
+      {artistName}
+    </div>
+  )
+}
+
+function ShowError() {
+  return (
+    <ErrorBoundary>
+      <Artists artistName='joe' />
+    </ErrorBoundary>
+  )
+} 
+
 
 export default App
